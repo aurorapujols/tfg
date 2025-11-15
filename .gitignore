@@ -1,0 +1,9 @@
+*.log
+__pycache__/
+*.pyc
+.env
+tfg_venv/
+data/upftfg26/apujols/incoming/
+data/upftfg26/apujols/processed/sum_image/
+data/upftfg26/apujols/processed/sum_image_cropped/
+data/upftfg26/apujols/raw/
