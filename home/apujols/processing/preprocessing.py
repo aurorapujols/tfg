@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import pandas as pd
+import py7zr
 
 from pathlib import Path
 
@@ -22,7 +23,7 @@ def has_videos(folder_path):
 
     if folder_exists(folder_path):
         
-        return any(Path(folder_path).rglob("*.avi"))
+        return any(Path(folder_path).rglob("*.zip"))
     
     return None
 
@@ -232,17 +233,32 @@ def update_dataset(dataset, input_folders, output_folder):
     """
     `update_dataset` checks if there are any new_samples in the new_samples folder and processes them and adds them in the given dataframe
     """
-    # Look at the add_samples folder to see if there are new files
-    if has_videos(input_folders[0]):
-        
-        # Get all the files
+    video_files = []
+    xml_files = []
+
+    if input_folders[0] == incoming_folder:
+
+        # Extract all .7z archives
+        zip_files = glob.glob(f"{input_folders[0]}/*.7z")
+        for zf in zip_files:
+            with py7zr.SevenZipFile(zf, mode='r') as archive:
+                archive.extractall(path=input_folders[0])
+            os.remove(zf)
+
+        # Collect only the .avi and .xml files, delete the rest
+        video_files = [str(p) for p in Path(input_folders[0]).rglob("*.avi")]
+        xml_files   = [str(p) for p in Path(input_folders[0]).rglob("*.xml")]          
+    
+    else:
         video_files = glob.glob(f"{input_folders[0]}/*.avi")
         xml_files = glob.glob(f"{input_folders[1]}/*.xml")
+
+    if len(video_files) > 0:
 
         new_samples_data, skipped = preprocess_files(video_files, xml_files, output_folder)
         
         df_new = pd.DataFrame(new_samples_data)
-        dataset = pd.concat([dataset, df_new])
+        dataset = pd.concat([dataset, df_new], ignore_index=True)
 
         dataset = dataset[~dataset.index.duplicated(keep="first")]
 
@@ -252,15 +268,24 @@ def update_dataset(dataset, input_folders, output_folder):
             raw_videos_folder = Path(f"{raw_data_folder}/videos")
 
             # Move XMLs
-            for xml_path in xml_files and Path(xml_path).stem not in skipped:
-                src = Path(xml_path)
-                dst = raw_xmls_folder / src.name
-                shutil.move(str(src), str(dst))
+            for xml_path in xml_files:
+                if Path(xml_path).stem not in skipped:
+                    src = Path(xml_path)
+                    dst = raw_xmls_folder / src.name
+                    shutil.move(str(src), str(dst))
 
-            for video_path in video_files and Path(video_path).stem not in skipped:
-                src = Path(video_path)
-                dst = raw_videos_folder / src.name
-                shutil.move(str(src), str(dst))
+            for video_path in video_files:
+                if Path(video_path).stem not in skipped:
+                    src = Path(video_path)
+                    dst = raw_videos_folder / src.name
+                    shutil.move(str(src), str(dst))
+
+    if input_folders[0] == incoming_folder:
+        for f in Path(input_folders[0]).iterdir():
+            if f.is_file():
+                f.unlink()          # delete file
+            elif f.is_dir():
+                shutil.rmtree(f)    # delete folder recursively
 
     return dataset
 
