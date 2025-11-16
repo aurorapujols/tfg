@@ -2,12 +2,12 @@ import os
 import glob
 import cv2
 import shutil
+import py7zr
 import numpy as np
 import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import pandas as pd
-import py7zr
 
 from pathlib import Path
 
@@ -23,7 +23,7 @@ def has_videos(folder_path):
 
     if folder_exists(folder_path):
         
-        return any(Path(folder_path).rglob("*.zip"))
+        return any(Path(folder_path).rglob("*.avi"))
     
     return None
 
@@ -197,7 +197,7 @@ def get_xml_from_video(video_path, xml_paths):
             return xml_path
     return None
 
-def preprocess_files(video_files, xml_files, output_folder):
+def preprocess_files(video_files, xml_files, output_folder, are_meteors):
 
     new_samples_data = []
     skipped = []
@@ -218,24 +218,32 @@ def preprocess_files(video_files, xml_files, output_folder):
             continue
         
         sum_image = generate_sum_image(img_input_path=curr_video_file, xml_input_path=curr_xml_file, output_path=f"{output_folder}/sum_image")
-        sum_image_cropped, bbox, metadata = generate_cropped_sum_image(sum_img=sum_image,
-                                                                        img_input_path=curr_video_file, 
-                                                                        xml_input_path=curr_xml_file, 
-                                                                        output_path=f"{output_folder}/sum_image_cropped")
-    
-    new_samples_data.append(metadata)
+
+        try:
+            sum_image_cropped, bbox, metadata = generate_cropped_sum_image(sum_img=sum_image,
+                                                                            img_input_path=curr_video_file, 
+                                                                            xml_input_path=curr_xml_file, 
+                                                                            output_path=f"{output_folder}/sum_image_cropped")
+            new_samples_data.append(metadata)
+        except Exception as e:
+            print(f"⚠️ Skipping {curr_xml_file}: {e}")
+            skipped.append(Path(curr_xml_file).stem)
+            continue
 
     print(f"Finished: processed {N}/{N} videos")
 
     return new_samples_data, skipped
 
-def update_dataset(dataset, input_folders, output_folder):
+
+def update_dataset(dataset, input_folders, output_folder, are_meteors):
     """
     `update_dataset` checks if there are any new_samples in the new_samples folder and processes them and adds them in the given dataframe
     """
+
     video_files = []
     xml_files = []
 
+    # Look at the add_samples folder to see if there are new files
     if input_folders[0] == incoming_folder:
 
         # Extract all .7z archives
@@ -255,9 +263,10 @@ def update_dataset(dataset, input_folders, output_folder):
 
     if len(video_files) > 0:
 
-        new_samples_data, skipped = preprocess_files(video_files, xml_files, output_folder)
+        new_samples_data, skipped = preprocess_files(video_files, xml_files, output_folder, are_meteors=are_meteors)
         
         df_new = pd.DataFrame(new_samples_data)
+        df_new["class"] = "meteor" if are_meteors else pd.NAN
         dataset = pd.concat([dataset, df_new], ignore_index=True)
 
         dataset = dataset[~dataset.index.duplicated(keep="first")]
@@ -280,6 +289,9 @@ def update_dataset(dataset, input_folders, output_folder):
                     dst = raw_videos_folder / src.name
                     shutil.move(str(src), str(dst))
 
+        print(f"Skipped: [{len(skipped)}] {skipped}")
+    
+    # Delete whatever is left in the incoming folder
     if input_folders[0] == incoming_folder:
         for f in Path(input_folders[0]).iterdir():
             if f.is_file():
@@ -289,11 +301,11 @@ def update_dataset(dataset, input_folders, output_folder):
 
     return dataset
 
-def create_dataset(raw_data_folder, output_folder):
+def create_dataset(raw_data_folder, output_folder, are_meteors):
 
     dataset = pd.DataFrame()
     
-    dataset = update_dataset(dataset, input_folders=[f"{raw_data_folder}/videos", f"{raw_data_folder}/metadata"], output_folder=output_folder)
+    dataset = update_dataset(dataset, input_folders=[f"{raw_data_folder}/videos", f"{raw_data_folder}/metadata"], output_folder=output_folder, are_meteors=are_meteors)
 
     return dataset
 
@@ -308,9 +320,9 @@ if __name__ == "__main__":
     if os.path.exists(csv_data_path):
         temp_df = pd.read_csv(csv_data_path, sep=";")
     else:
-        temp_df = create_dataset(raw_data_folder=raw_data_folder, output_folder=output_folder)
+        temp_df = create_dataset(raw_data_folder=raw_data_folder, output_folder=output_folder, are_meteors=True)
 
-    df = update_dataset(dataset=temp_df, input_folders=[incoming_folder, incoming_folder], output_folder=output_folder)
+    df = update_dataset(dataset=temp_df, input_folders=[incoming_folder, incoming_folder], output_folder=output_folder, are_meteors=True)
 
     df.to_csv(csv_data_path, sep=";", index=False)
 
