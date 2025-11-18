@@ -197,7 +197,7 @@ def get_xml_from_video(video_path, xml_paths):
             return xml_path
     return None
 
-def preprocess_files(video_files, xml_files, output_folder, are_meteors):
+def preprocess_files(video_files, xml_files, output_folder):
 
     new_samples_data = []
     skipped = []
