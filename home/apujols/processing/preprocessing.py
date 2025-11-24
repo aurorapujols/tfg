@@ -244,7 +244,7 @@ def update_dataset(dataset, input_folders, output_folder, are_meteors):
     xml_files = []
 
     # Look at the add_samples folder to see if there are new files
-    if input_folders[0] == incoming_folder:
+    if input_folders[0] == "../../../data/upftfg26/apujols/incoming":
 
         # Extract all .7z archives
         zip_files = glob.glob(f"{input_folders[0]}/*.7z")
@@ -263,7 +263,7 @@ def update_dataset(dataset, input_folders, output_folder, are_meteors):
 
     if len(video_files) > 0:
 
-        new_samples_data, skipped = preprocess_files(video_files, xml_files, output_folder, are_meteors=are_meteors)
+        new_samples_data, skipped = preprocess_files(video_files, xml_files, output_folder)
         
         df_new = pd.DataFrame(new_samples_data)
         df_new["class"] = "meteor" if are_meteors else pd.NAN
@@ -272,9 +272,9 @@ def update_dataset(dataset, input_folders, output_folder, are_meteors):
         dataset = dataset[~dataset.index.duplicated(keep="first")]
 
         # Move the incoming data into the processed raw data folder only if its new data
-        if input_folders[0] == incoming_folder:
-            raw_xmls_folder = Path(f"{raw_data_folder}/metadata")
-            raw_videos_folder = Path(f"{raw_data_folder}/videos")
+        if input_folders[0] == "../../../data/upftfg26/apujols/incoming":
+            raw_xmls_folder = Path(f"../../../data/upftfg26/apujols/raw/metadata")
+            raw_videos_folder = Path(f"../../../data/upftfg26/apujols/raw/videos")
 
             # Move XMLs
             for xml_path in xml_files:
@@ -292,7 +292,7 @@ def update_dataset(dataset, input_folders, output_folder, are_meteors):
         print(f"Skipped: [{len(skipped)}] {skipped}")
     
     # Delete whatever is left in the incoming folder
-    if input_folders[0] == incoming_folder:
+    if input_folders[0] == "../../../data/upftfg26/apujols/incoming":
         for f in Path(input_folders[0]).iterdir():
             if f.is_file():
                 f.unlink()          # delete file
