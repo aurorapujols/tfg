@@ -24,7 +24,7 @@ ENV PATH=/opt/conda/bin:$PATH
 RUN conda create -y -n gpu_env python=3.10 \
     pytorch=2.5.1 torchvision=0.20.1 torchaudio==2.5.1 pytorch-cuda==12.1 \
     faiss-gpu \
-    numpy pandas pillow matplotlib \
+    numpy pandas pillow matplotlib tqdm \
     -c pytorch -c nvidia -c conda-forge --override-channels
 
 # Select path for interpreter
