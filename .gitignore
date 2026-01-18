@@ -3,8 +3,10 @@ __pycache__/
 *.pyc
 .env
 tfg_venv/
+vgg-faiss-gpu.tar
 data/upftfg26/apujols/incoming/
 data/upftfg26/apujols/processed/sum_image/
 data/upftfg26/apujols/processed/sum_image_cropped/
 data/upftfg26/apujols/raw/
 data/upftfg26/apujols/processed/dataset.csv
+
