@@ -68,7 +68,7 @@ def get_bbox_metadata(input_path, padding=32):
 
     # Get event occurrance time
     year = float(root.attrib['y'])
-    month = float(root.attrib['m'])
+    month = float(root.attrib['mo'])
     day = float(root.attrib['d'])
     hour = float(root.attrib['h'])
     minute = float(root.attrib['m'])
@@ -110,11 +110,13 @@ def get_bbox_metadata(input_path, padding=32):
         "lat": lat,
         "alt": alt,
         "camera": camera,
-        "width": width,
-        "height": height,
+        "width": bbox['x_max'] - bbox['x_min'],
+        "height": bbox['y_max'] - bbox['y_min'],
         "frames": frames,
         "fps": fps,
         "time": time_seconds,
+        "bmin": min(brightnes_vals),
+        "bmax": max(brightnes_vals),
         "mean_brightness": mean_brightness
     }
 
@@ -234,7 +236,6 @@ def preprocess_files(video_files, xml_files, output_folder):
 
     return new_samples_data, skipped
 
-
 def update_dataset(dataset, input_folders, output_folder, are_meteors):
     """
     `update_dataset` checks if there are any new_samples in the new_samples folder and processes them and adds them in the given dataframe
@@ -250,7 +251,8 @@ def update_dataset(dataset, input_folders, output_folder, are_meteors):
         zip_files = glob.glob(f"{input_folders[0]}/*.7z")
         for zf in zip_files:
             with py7zr.SevenZipFile(zf, mode='r') as archive:
-                archive.extractall(path=input_folders[0])
+                extract_path = Path(input_folders[0]).resolve()
+                archive.extractall(path=str(extract_path))
             os.remove(zf)
 
         # Collect only the .avi and .xml files, delete the rest
@@ -266,10 +268,10 @@ def update_dataset(dataset, input_folders, output_folder, are_meteors):
         new_samples_data, skipped = preprocess_files(video_files, xml_files, output_folder)
         
         df_new = pd.DataFrame(new_samples_data)
-        df_new["class"] = "meteor" if are_meteors else pd.NAN
+        df_new["class"] = "meteor" if are_meteors else "unknown" # pd.NA
         dataset = pd.concat([dataset, df_new], ignore_index=True)
 
-        dataset = dataset[~dataset.index.duplicated(keep="first")]
+        dataset = dataset.drop_duplicates(subset = ['filename'], keep='last')
 
         # Move the incoming data into the processed raw data folder only if its new data
         if input_folders[0] == "../../../data/upftfg26/apujols/incoming":
@@ -311,6 +313,7 @@ def create_dataset(raw_data_folder, output_folder, are_meteors):
 
 if __name__ == "__main__":
 
+    ARE_METEORS = False
     incoming_folder = "../../../data/upftfg26/apujols/incoming"
     output_folder = "../../../data/upftfg26/apujols/processed"
     raw_data_folder = "../../../data/upftfg26/apujols/raw"
@@ -320,9 +323,9 @@ if __name__ == "__main__":
     if os.path.exists(csv_data_path):
         temp_df = pd.read_csv(csv_data_path, sep=";")
     else:
-        temp_df = create_dataset(raw_data_folder=raw_data_folder, output_folder=output_folder, are_meteors=True)
+        temp_df = create_dataset(raw_data_folder=raw_data_folder, output_folder=output_folder, are_meteors=ARE_METEORS)
 
-    df = update_dataset(dataset=temp_df, input_folders=[incoming_folder, incoming_folder], output_folder=output_folder, are_meteors=True)
+    df = update_dataset(dataset=temp_df, input_folders=[incoming_folder, incoming_folder], output_folder=output_folder, are_meteors=ARE_METEORS)
 
     df.to_csv(csv_data_path, sep=";", index=False)
 
